@@ -23,7 +23,8 @@ export const SEED_USERS: SeedUser[] = [
 
 export const DEFAULT_SETTINGS: Record<string, string> = {
   host_timeout_minutes: '5',
-  closing_time: '18:00',
+  // Overridable at first start (e.g. CLOSING_TIME=23:59 for demos and CI, which run at any hour).
+  closing_time: process.env.CLOSING_TIME ?? '18:00',
   retention_days: '365',
   default_duration_minutes: '120',
 };

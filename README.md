@@ -36,6 +36,8 @@ The first start creates the database, applies the schema, and loads fictional se
 
 Pre-registration: as Teresa, **Expect a visitor** for today; as the guard, search **Expected today** and **Check in**.
 
+If you try it after 6 PM Manila time (10:00 UTC), start with `CLOSING_TIME=23:59 docker compose up --build` so the closing-time sweep does not check everyone out straight away (the default closing time is 18:00; it applies on first start, later edit the `settings` table).
+
 Seeded sample data shows an overstayed visitor and expected visitors. To see the notification-failure path, set `SIMULATE_CHANNEL_FAILURES: EMAIL` (or `SMS`, or `EMAIL,SMS`) in `docker-compose.yml` and restart; the failed attempt shows in **Sent messages** and the in-app notification still arrives.
 
 ## Test it

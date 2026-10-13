@@ -51,6 +51,8 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
       - run: docker compose up --build -d --wait
+        env:
+          CLOSING_TIME: '23:59' # CI runs in UTC; keep the closing sweep out of the e2e run
       - working-directory: e2e
         run: |
           npm ci

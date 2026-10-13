@@ -181,13 +181,15 @@ function FrontDesk() {
                     <td>{v.hostName}</td>
                     <td>{fmtTime(v.checkedInAt)}</td>
                     <td>{fmtTime(v.expectedEndAt)}</td>
-                    <td className="actions">
-                      <Link href={`/pass/${v.id}`} target="_blank" className="link">
-                        Pass
-                      </Link>
-                      {can('visit:checkout') && v.pass && (
-                        <button onClick={() => checkOut(v.pass!.number)}>Check out</button>
-                      )}
+                    <td>
+                      <div className="cell-actions">
+                        <Link href={`/pass/${v.id}`} target="_blank" className="link">
+                          Pass
+                        </Link>
+                        {can('visit:checkout') && v.pass && (
+                          <button onClick={() => checkOut(v.pass!.number)}>Check out</button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

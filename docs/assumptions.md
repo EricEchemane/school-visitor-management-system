@@ -7,7 +7,7 @@ Each item: what we decided, why, and the impact if it is wrong. Decision IDs ref
 | A1 | Who are the users? | Employees, front-desk guards and admins; visitors are not users (D4) | A visitor-facing flow (kiosk, self check-out) would need a new auth model |
 | A2 | Who checks visitors out? | The guard, by typed pass number or QR (D4, D25) | Visitors who leave via another gate cannot be checked out until closing sweep |
 | A3 | One school or many? | One campus, ~150 employees, 40–80 visitors/day | Multi-tenant would need a `school_id` on all data |
-| A4 | What counts as the host? | The named employee; for pre-registration, the employee who registers (D8) | Assistants registering for a boss would need a "host on behalf" field |
+| A4 | What counts as the host? | The named employee; for pre-registration, the employee who registers (D8). The API accepts an optional `hostId` for registering on someone's behalf (the registrant keeps access as creator), but the UI does not offer it and it is not covered by a dedicated test | Assistants registering for a boss would need a "host on behalf" field |
 | A5 | When is the pass issued? | Only at check-in (pre-registered) or host confirmation (walk-in) (D21) | Early passes would allow entry before confirmation |
 | A6 | How long does the host have to answer? | 5 minutes, configurable, one reminder at half (D8) | Too short causes false expiries; too long keeps visitors waiting |
 | A7 | What happens when the host does not answer? | Visit expires; guard re-registers; no override (D8) | Schools wanting a guard override need a new permission and audit rules |

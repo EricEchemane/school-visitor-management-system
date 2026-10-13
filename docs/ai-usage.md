@@ -29,7 +29,7 @@
 | Guardrail | What it caught or prevents |
 |---|---|
 | Domain unit tests (67 → 68) | Every illegal state transition; time-rule edges |
-| Integration tests on real PostgreSQL (29) | Permission denials, race between answer and timeout, audit table immutability at the database level, sweep/retention behaviour |
+| Integration tests on real PostgreSQL (30) | Permission denials, race between answer and timeout, audit table immutability at the database level, sweep/retention behaviour |
 | Playwright e2e (3) | The UI, proxy, API, DB and polling working together; the check-in confirmation dialog |
 | ESLint (+ React rules) and TypeScript strict mode | See corrections below |
 | `npm audit --omit=dev --audit-level=high`, also in CI | See corrections below |
@@ -50,6 +50,7 @@ Only genuine corrections of AI output are listed; requirement changes made by th
 7. **E2E selectors:** `getByRole('alert')` matched both the app's error text and Next's hidden route announcer. Added `data-testid="error"` instead of loosening the assertion.
 8. **A bug the AI's validation missed (found by exploratory testing).** An arrival window ending before it started was accepted. Added the rule, a unit test and an integration test.
 9. **Overclaiming in the AI's own plan.** While proposing the AI-usage corrections log, the AI first suggested listing the author's requirement changes (multi-tenant, superadmin, polling) as "AI corrections". It withdrew that, because they were the author's decisions, and the log now keeps the two separate.
+10. **Spec drift found in the pre-submission review.** Checking the repository against the exam brief showed that the AI-drafted `spec.md` had no API section, although the brief asks for one. Its data model listed a `version` column that was never built (and that the decision table itself rejects in favour of a conditional update). It also omitted `kind`, `duration_minutes`, `reminder_sent_at`, the departure-correction columns and `notifications.message`. The fix was to compare the spec with `schema.sql` and the controllers, and to check status codes and error shapes against the running API instead of trusting the draft. The same review found an optional `hostId` on pre-registration that no document mentioned (now recorded in A4) and added the missing retention test for open visits. That test was confirmed to fail when the state filter is removed.
 
 ## 6. Keeping it safe and understood
 

@@ -45,7 +45,7 @@ export interface TestApp {
 export async function startTestApp(): Promise<TestApp> {
   const container = await new PostgreSqlContainer('postgres:16-alpine').start();
   const adminUrl = container.getConnectionUri();
-  await migrate(adminUrl, 'app-secret');
+  await migrate(adminUrl, 'app-secret', { sampleVisits: false });
 
   const appUrl = new URL(adminUrl);
   appUrl.username = 'svm_app';

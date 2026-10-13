@@ -9,7 +9,7 @@ export const StateBadge = ({ state, overstayed }: { state: string; overstayed?: 
 
 export const ErrorText = ({ message }: { message: string | null }) =>
   message ? (
-    <p className="error" role="alert">
+    <p className="error" role="alert" data-testid="error">
       {message}
     </p>
   ) : null;

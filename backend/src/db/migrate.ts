@@ -1,8 +1,10 @@
+import { randomBytes } from 'crypto';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Client } from 'pg';
 import * as bcrypt from 'bcryptjs';
 import { DEFAULT_ROLES, PERMISSIONS } from '../domain/permissions';
+import { schoolDay } from '../domain/rules';
 import { SEED_USERS, DEFAULT_SETTINGS } from './seed-data';
 
 const APP_ROLE = 'svm_app';
@@ -15,7 +17,7 @@ function literal(value: string): string {
  * Runs as the database owner. Creates the schema, seeds reference data, and
  * creates the restricted application role (insert/select only on audit_events).
  */
-export async function migrate(adminUrl: string, appPassword: string, opts = { seedDemo: true }) {
+export async function migrate(adminUrl: string, appPassword: string, opts: { seedDemo?: boolean; sampleVisits?: boolean } = {}) {
   const client = new Client({ connectionString: adminUrl });
   await client.connect();
   try {
@@ -44,7 +46,8 @@ export async function migrate(adminUrl: string, appPassword: string, opts = { se
     }
 
     const { rowCount } = await client.query('SELECT 1 FROM users LIMIT 1');
-    if (opts.seedDemo && rowCount === 0) {
+    const seedDemo = opts.seedDemo ?? true;
+    if (seedDemo && rowCount === 0) {
       for (const u of SEED_USERS) {
         await client.query(
           `INSERT INTO users(email, name, password_hash, role_id, mobile)
@@ -53,6 +56,8 @@ export async function migrate(adminUrl: string, appPassword: string, opts = { se
         );
       }
     }
+
+    if (seedDemo && rowCount === 0 && (opts.sampleVisits ?? true)) await seedSampleVisits(client);
 
     await client.query(
       `DO $$ BEGIN
@@ -72,6 +77,48 @@ export async function migrate(adminUrl: string, appPassword: string, opts = { se
     await client.query('SELECT pg_advisory_unlock(727001)').catch(() => undefined);
     await client.end();
   }
+}
+
+/** A few fictional visits in different states so the screens are not empty on first run. */
+async function seedSampleVisits(client: Client) {
+  const now = new Date();
+  const today = schoolDay(now);
+  const user = async (email: string) =>
+    (await client.query('SELECT id FROM users WHERE email = $1', [email])).rows[0].id as string;
+  const [t1, t2, guard] = await Promise.all([
+    user('teacher1@school.test'),
+    user('teacher2@school.test'),
+    user('frontdesk1@school.test'),
+  ]);
+  const insert = async (v: {
+    name: string; purpose: string; host: string; kind: string; state: string;
+    inMinAgo?: number; outMinAgo?: number; durationMin: number; window?: [string, string];
+  }) => {
+    const checkedIn = v.inMinAgo !== undefined ? new Date(now.getTime() - v.inMinAgo * 60_000) : null;
+    const checkedOut = v.outMinAgo !== undefined ? new Date(now.getTime() - v.outMinAgo * 60_000) : null;
+    const { rows } = await client.query(
+      `INSERT INTO visits(visitor_name, purpose, host_id, created_by, kind, state, expected_date,
+         window_start, window_end, duration_minutes, expected_end_at, registered_at, checked_in_at,
+         checked_out_at, departure_verified, checked_out_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13,$14,$15) RETURNING id`,
+      [v.name, v.purpose, v.host, v.kind === 'WALK_IN' ? guard : v.host, v.kind, v.state, today,
+       v.window?.[0] ?? null, v.window?.[1] ?? null, v.durationMin,
+       checkedIn ? new Date(checkedIn.getTime() + v.durationMin * 60_000) : null,
+       checkedIn ?? now, checkedOut, checkedOut ? true : null, checkedOut ? guard : null],
+    );
+    if (v.state === 'CHECKED_IN' || v.state === 'CHECKED_OUT') {
+      const seq = await client.query("SELECT nextval('pass_number_seq') AS n");
+      await client.query(
+        'INSERT INTO passes(visit_id, number, token, issued_at, invalidated_at) VALUES ($1,$2,$3,$4,$5)',
+        [rows[0].id, `V-${String(seq.rows[0].n).padStart(4, '0')}`, randomBytes(24).toString('base64url'), checkedIn, checkedOut],
+      );
+    }
+  };
+  await insert({ name: 'Paula Parent', purpose: 'Parent-teacher meeting', host: t1, kind: 'PRE_REGISTERED', state: 'PRE_REGISTERED', durationMin: 60, window: ['13:00', '14:00'] });
+  await insert({ name: 'Victor Vendor', purpose: 'Deliver science kits', host: t2, kind: 'PRE_REGISTERED', state: 'PRE_REGISTERED', durationMin: 30, window: ['09:00', '12:00'] });
+  await insert({ name: 'Olive Overstay', purpose: 'Book fair setup', host: t2, kind: 'WALK_IN', state: 'CHECKED_IN', inMinAgo: 200, durationMin: 60 });
+  await insert({ name: 'Carlo Contractor', purpose: 'Repair the gym lights', host: t1, kind: 'PRE_REGISTERED', state: 'CHECKED_IN', inMinAgo: 20, durationMin: 120 });
+  await insert({ name: 'Dina Departed', purpose: 'Enrolment inquiry', host: t1, kind: 'WALK_IN', state: 'CHECKED_OUT', inMinAgo: 120, outMinAgo: 70, durationMin: 60 });
 }
 
 if (require.main === module) {

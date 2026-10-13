@@ -8,7 +8,9 @@ export function usePolling<T>(fetcher: () => Promise<T>, ms = POLL_MS) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef(fetcher);
-  ref.current = fetcher;
+  useEffect(() => {
+    ref.current = fetcher;
+  });
 
   const reload = useCallback(async () => {
     try {

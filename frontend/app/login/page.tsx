@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
-import { homeFor, useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { ErrorText } from '@/components/ui';
 
 export default function LoginPage() {

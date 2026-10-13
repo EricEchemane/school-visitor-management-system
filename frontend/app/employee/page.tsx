@@ -260,7 +260,6 @@ function useGateAlerts(requests: Visit[] | null) {
         notify.info(`${visitorLabel(v)} is at the gate for you`, {
           id: `gate-${v.id}`,
           description: `${v.purpose}. Confirm or decline at the top of this page.`,
-          duration: 10000,
           action: {
             label: 'Show',
             onClick: () =>

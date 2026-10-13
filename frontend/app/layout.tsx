@@ -10,8 +10,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AuthProvider>{children}</AuthProvider>
         {/* Mounted once, outside every page, so toasts survive navigation and never duplicate.
-            Bottom-left: every row action (Check in, Check out, Cancel) sits on the right. */}
-        <Toaster richColors closeButton position="bottom-left" />
+            Styled like the app's cards in globals.css; only the icon carries colour. */}
+        <Toaster closeButton position="bottom-center" duration={6000} />
       </body>
     </html>
   );

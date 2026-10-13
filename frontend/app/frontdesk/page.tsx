@@ -79,7 +79,6 @@ function FrontDesk() {
         notify.success(`${visitorLabel(res)} checked in`, {
           id,
           description: `Pass ${res.pass?.number} issued.`,
-          duration: 10000,
           action: { label: 'Print pass', onClick: () => window.open(`/pass/${res.id}`, '_blank') },
         });
       } catch (e) {
@@ -427,7 +426,6 @@ function useHostDecisionToasts(awaiting: Visit[] | null, outcomes: Visit[] | nul
         notify.success(`${v.hostName} confirmed ${visitorLabel(v)}`, {
           id: `decision-${id}`,
           description: `Pass ${admitted.pass?.number ?? ''} issued. The visitor may enter.`,
-          duration: 10000,
           action: { label: 'Print pass', onClick: () => window.open(`/pass/${id}`, '_blank') },
         });
       } else if (outcome?.state === 'DECLINED') {

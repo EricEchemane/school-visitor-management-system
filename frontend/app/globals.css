@@ -75,6 +75,7 @@ td.center { text-align: center; }
 .error { color: var(--danger); margin: .5rem 0; }
 .ok { color: var(--ok); margin: .5rem 0; }
 .badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .75rem; background: #eef1f6; color: #344054; }
+h2 .badge { margin-left: 0.6rem; vertical-align: middle; }
 .badge.s-CHECKED_IN { background: #d1fadf; color: #05603a; }
 .badge.s-AWAITING_HOST { background: #fef0c7; color: #93370d; }
 .badge.s-DECLINED, .badge.s-EXPIRED, .badge.s-NO_SHOW { background: #fee4e2; color: #912018; }

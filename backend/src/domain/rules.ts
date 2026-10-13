@@ -56,3 +56,9 @@ export function isReminderDue(registeredAt: Date, now: Date, timeoutMinutes: num
 export function isValidPhMobile(value: string): boolean {
   return /^(\+63|0)9\d{9}$/.test(value.replace(/[\s-]/g, ''));
 }
+
+/** Arrival window must not end before it starts (both optional, "HH:MM" compares correctly as text). */
+export function validateArrivalWindow(start?: string | null, end?: string | null): string | null {
+  if (start && end && end < start) return 'Arrival window must end after it starts';
+  return null;
+}

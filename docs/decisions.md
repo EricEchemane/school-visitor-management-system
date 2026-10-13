@@ -76,7 +76,7 @@ Notes:
 - The system never admits an unconfirmed visitor. Escalation and guard override are future work.
 
 ## D9 — Expected duration and overstay
-- Every visit has an **expected end time**: set at pre-registration (employee) or walk-in registration (guard); the host can adjust it. A default duration (2 h, configurable) is pre-filled so entering a time is optional.
+- Every visit has an **expected end time**: set at pre-registration (employee) or walk-in registration (guard); the host can adjust it (**adjusting is not built yet**; listed as future work). A default duration (2 h, configurable) is pre-filled so entering a time is optional.
 - **Overstay (derived):** `CHECKED_IN` and now > expected end.
 - **Closing-time sweep:** see D19 (auto-check-out at closing time).
 

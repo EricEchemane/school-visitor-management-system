@@ -1,0 +1,65 @@
+:root {
+  --bg: #f5f6f8;
+  --card: #fff;
+  --text: #1c2430;
+  --muted: #667085;
+  --line: #e1e5ec;
+  --brand: #1f5fbf;
+  --danger: #b42318;
+  --ok: #067647;
+  --warn: #b54708;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+h1 { font-size: 1.5rem; margin: 0 0 1rem; }
+h2 { font-size: 1.1rem; margin: 0 0 .75rem; }
+.topbar { display: flex; align-items: center; gap: 1.25rem; padding: .75rem 1.5rem; background: #fff; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.topbar nav { display: flex; gap: 1rem; }
+.topbar a { color: var(--muted); text-decoration: none; padding: .25rem 0; }
+.topbar a.active { color: var(--brand); border-bottom: 2px solid var(--brand); }
+.spacer { flex: 1; }
+.page { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+.pad { padding: 2rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem 1.25rem; margin-bottom: 1.25rem; }
+.card.attention { border-color: var(--warn); background: #fffaeb; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
+@media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1rem; }
+label { display: flex; flex-direction: column; gap: .25rem; font-size: .85rem; color: var(--muted); }
+input, select { font: inherit; padding: .5rem .6rem; border: 1px solid #c8cfda; border-radius: 6px; background: #fff; color: var(--text); width: 100%; }
+input[type='checkbox'] { width: auto; }
+button { font: inherit; padding: .5rem .9rem; border-radius: 6px; border: 1px solid #c8cfda; background: #fff; cursor: pointer; }
+button:hover { background: #f1f3f7; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+button.primary:hover { background: #194f9f; }
+button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+button.link { border: 0; background: none; color: var(--brand); padding: .25rem; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.actions { display: flex; gap: .5rem; align-items: end; }
+.inline { display: flex; gap: .5rem; }
+.row, .request { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .55rem 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.request input { max-width: 260px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .5rem .5rem; border-top: 1px solid var(--line); vertical-align: top; }
+th { font-size: .8rem; color: var(--muted); font-weight: 600; }
+td.center { text-align: center; }
+.scroll { overflow-x: auto; }
+.muted { color: var(--muted); }
+.small { font-size: .8rem; }
+.error { color: var(--danger); margin: .5rem 0; }
+.ok { color: var(--ok); margin: .5rem 0; }
+.badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .75rem; background: #eef1f6; color: #344054; }
+.badge.s-CHECKED_IN { background: #d1fadf; color: #05603a; }
+.badge.s-AWAITING_HOST { background: #fef0c7; color: #93370d; }
+.badge.s-DECLINED, .badge.s-EXPIRED, .badge.s-NO_SHOW { background: #fee4e2; color: #912018; }
+.badge.overstay { background: #fee4e2; color: #912018; font-weight: 600; }
+.tabs { display: flex; gap: .25rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.tabs button.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+.login { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+.login .card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: .9rem; }
+.pass { width: 320px; margin: 1.5rem auto; border: 2px solid #000; border-radius: 12px; padding: 1.25rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: .5rem; background: #fff; }
+.pass-title { letter-spacing: .3em; font-weight: 700; }
+.pass-number { font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pass-name { font-size: 1.3rem; font-weight: 700; }
+@media print { .no-print { display: none !important; } body { background: #fff; } .page { padding: 0; } }

@@ -47,7 +47,7 @@ export function Shell({ children, need }: { children: React.ReactNode; need?: st
         </button>
       </header>
       <main className="page">
-        {allowed ? children : <p className="error" role="alert">You do not have access to this page.</p>}
+        {allowed ? children : <p className="error" role="alert" data-testid="error">You do not have access to this page.</p>}
       </main>
     </>
   );

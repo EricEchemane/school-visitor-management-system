@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './helpers';
+import { notice, signIn } from './helpers';
 
 // Walk-in flow from arrival to check-out, through the real UI, backend and database.
 test('walk-in visitor: guard registers, host confirms, pass issued, guard checks out', async ({ browser }) => {
@@ -33,13 +33,15 @@ test('walk-in visitor: guard registers, host confirms, pass issued, guard checks
   await expect(row).toBeVisible({ timeout: 15_000 });
   const passNumber = (await row.locator('td').first().innerText()).trim();
   expect(passNumber).toMatch(/^V-\d{4}$/);
+  // ...and is told so without watching the list
+  await expect(notice(guard, `Teresa Reyes confirmed ${visitor}`)).toContainText(`Pass ${passNumber} issued`);
 
   // 4. Guard checks out with the pass number; the pass stops being valid
   await guard.getByTestId('checkout-code').fill(passNumber);
   await guard.getByTestId('checkout-submit').click();
   await expect(guard.getByTestId('confirm-dialog')).toContainText(`pass ${passNumber}`);
   await guard.getByTestId('confirm-yes').click();
-  await expect(guard.getByTestId('notice')).toContainText('checked out');
+  await expect(notice(guard, `${visitor} checked out`)).toBeVisible();
   await expect(guard.getByTestId('campus-row').filter({ hasText: visitor })).toHaveCount(0);
 
   await guard.getByTestId('checkout-code').fill(passNumber);
@@ -85,6 +87,6 @@ test('check-in asks for confirmation: cancel changes nothing, confirm checks the
 
   await row.getByRole('button', { name: 'Check in' }).click();
   await guard.getByTestId('confirm-yes').click();
-  await expect(guard.getByTestId('notice')).toContainText('checked in');
+  await expect(notice(guard, `${visitor} checked in`)).toBeVisible();
   await expect(guard.getByTestId('campus-row').filter({ hasText: visitor })).toBeVisible({ timeout: 15_000 });
 });

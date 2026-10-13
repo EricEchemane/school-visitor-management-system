@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { ErrorText } from '@/components/ui';
+import { Button, ErrorText } from '@/components/ui';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -41,9 +41,9 @@ export default function LoginPage() {
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
         <ErrorText message={error} />
-        <button className="primary" disabled={busy}>
+        <Button className="primary" pending={busy} pendingLabel="Signing in…">
           Sign in
-        </button>
+        </Button>
       </form>
     </main>
   );

@@ -8,6 +8,10 @@
   --danger: #b42318;
   --ok: #067647;
   --warn: #b54708;
+  /* Motion: strong ease-out for UI entering or responding; durations stay under 300ms */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur-press: 160ms;
+  --dur-enter: 220ms;
 }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
@@ -38,25 +42,19 @@ select {
   background-position: right 0.85rem center;
   background-size: 0.75rem;
 }
-/* Custom chevron so it is inset from the edge instead of hugging the border */
-select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding-right: 2.25rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23667085' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right .85rem center;
-  background-size: .75rem;
-}
-button { white-space: nowrap; font: inherit; padding: .5rem .9rem; border-radius: 6px; border: 1px solid #c8cfda; background: #fff; cursor: pointer; }
-button:hover { background: #f1f3f7; }
+button { white-space: nowrap; font: inherit; padding: .5rem .9rem; border-radius: 6px; border: 1px solid #c8cfda; background: #fff; cursor: pointer; transition: transform var(--dur-press) var(--ease-out), background-color 150ms ease; }
+@media (hover: hover) and (pointer: fine) { button:hover { background: #f1f3f7; } }
+/* Press feedback: the button visibly heard the click */
+button:not(:disabled):active { transform: scale(0.97); }
 button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
-button.primary:hover { background: #194f9f; }
+@media (hover: hover) and (pointer: fine) { button.primary:hover { background: #194f9f; } }
 button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 button.link, a.link { border: 0; background: none; color: var(--brand); padding: .25rem; text-decoration: none; }
 a.link:hover { text-decoration: underline; }
 button:disabled { opacity: .5; cursor: not-allowed; }
+/* In flight: still readable (it is the thing the user is watching), with a spinner */
+button[aria-busy='true'] { opacity: .85; cursor: progress; }
 .actions { display: flex; gap: .5rem; align-items: end; }
 .cell-actions { display: flex; gap: .75rem; align-items: center; justify-content: flex-end; white-space: nowrap; }
 .inline { display: flex; gap: .5rem; }
@@ -95,3 +93,49 @@ h2 .badge { margin-left: 0.6rem; vertical-align: middle; }
 .dialog h2 { margin-bottom: 0.5rem; }
 .dialog p { margin: 0 0 1.25rem; color: var(--muted); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+/* ---------- Feedback and motion ---------- */
+
+/* Activity: spinner in busy buttons and loading text. Constant motion, so linear. */
+.spinner { display: inline-block; width: .9em; height: .9em; margin-right: .45em; vertical-align: -0.12em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading { display: flex; align-items: center; }
+
+/* Waiting for a host: a slow pulse says "still in progress", unlike a static badge */
+.pulse-dot { display: inline-block; width: .5rem; height: .5rem; margin-right: .35rem; border-radius: 50%; background: currentColor; vertical-align: .05em; animation: pulse 1.6s ease-in-out infinite; }
+.card.attention h2 .pulse-dot { color: var(--warn); width: .6rem; height: .6rem; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* New rows arriving by polling fade in instead of appearing out of nowhere. Only newly mounted
+   rows animate (rows are keyed), so a refresh that changes nothing does not move anything. */
+.enter { transition: opacity var(--dur-enter) var(--ease-out), transform var(--dur-enter) var(--ease-out); }
+.enter-card { transition: opacity 280ms var(--ease-out), transform 280ms var(--ease-out); }
+@starting-style {
+  .enter { opacity: 0; transform: translateY(4px); }
+  .enter-card { opacity: 0; transform: scale(0.98); }
+}
+
+/* Confirm dialog: modals stay centred; exit is faster than entry */
+.dialog { opacity: 0; transform: scale(0.97); transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out), overlay 150ms allow-discrete, display 150ms allow-discrete; }
+.dialog[open] { opacity: 1; transform: scale(1); transition-duration: 200ms; }
+.dialog::backdrop { opacity: 0; transition: opacity 150ms ease, overlay 150ms allow-discrete, display 150ms allow-discrete; }
+.dialog[open]::backdrop { opacity: 1; transition-duration: 200ms; }
+@starting-style {
+  .dialog[open] { opacity: 0; transform: scale(0.97); }
+  .dialog[open]::backdrop { opacity: 0; }
+}
+
+/* Lost connection to the API: polling keeps retrying */
+.banner { display: flex; align-items: center; padding: .6rem 1.5rem; background: #fef0c7; color: #93370d; border-bottom: 1px solid #fedf89; font-size: .9rem; }
+
+/* Reduced motion: keep fades that explain a change, drop movement and scaling */
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active { transform: none; }
+  .dialog, .dialog[open] { transform: none; }
+  .spinner { animation-duration: 1.4s; }
+  .pulse-dot { animation: none; }
+  @starting-style {
+    .enter, .enter-card, .dialog[open] { transform: none; }
+  }
+}
+

@@ -9,3 +9,6 @@ export async function signIn(page: Page, email: string) {
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByTestId('whoami')).toBeVisible();
 }
+
+/** A success toast with this text (several toasts can be on screen at once). */
+export const notice = (page: Page, text: string) => page.getByTestId('notice').filter({ hasText: text });

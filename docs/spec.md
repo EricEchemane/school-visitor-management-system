@@ -1,6 +1,6 @@
 # School Visitor Management — Product Spec
 
-Status: v1.1 (as built). v1.0 was written before the build; v1.1 aligns the data model with `backend/src/db/schema.sql` and adds the API (section 6). Decision trail: `decisions.md` (D1–D31). Permissions: `RBAC.md`. Assumptions: `assumptions.md`.
+Status: v1.1 (as built). v1.0 was written before the build; v1.1 aligns the data model with `backend/src/db/schema.sql` and adds the API (section 6). Decision trail: `decisions.md` (D1–D32). Permissions: `RBAC.md`. Assumptions: `assumptions.md`.
 
 Business readers: sections 1–5, 7, 9–12. Developers: sections 4–8 (section 6 has the data model and API), 10 and the decision log.
 

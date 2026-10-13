@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { api, User } from './api';
+import { resetConnection } from './hooks';
 
 interface AuthState {
   user: User | null;
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setUser(await api<User>('/auth/login', { body: { email, password } }));
+    resetConnection();
   }, []);
 
   const logout = useCallback(async () => {

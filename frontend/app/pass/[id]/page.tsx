@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Shell } from '@/components/Shell';
-import { ErrorText } from '@/components/ui';
+import { ErrorText, Loading } from '@/components/ui';
 import { api } from '@/lib/api';
 
 interface Pass {
@@ -41,8 +41,9 @@ function PassView() {
           Print pass
         </button>
       </div>
+      {!pass && !error && <Loading what="the pass" />}
       {pass && (
-        <div className="pass" data-testid="pass">
+        <div className="pass enter-card" data-testid="pass">
           <div className="pass-title">VISITOR</div>
           <div className="pass-number" data-testid="pass-number">{pass.number}</div>
           <QRCodeSVG value={pass.token} size={160} />

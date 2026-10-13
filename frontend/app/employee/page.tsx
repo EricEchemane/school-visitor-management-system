@@ -1,10 +1,11 @@
 'use client';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Shell } from '@/components/Shell';
-import { ErrorText, StateBadge } from '@/components/ui';
+import { Button, ErrorText, Loading, StateBadge } from '@/components/ui';
 import { api, Visit } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { usePolling } from '@/lib/hooks';
+import { usePending, usePolling } from '@/lib/hooks';
+import { message, notify } from '@/lib/notify';
 import { addDaysISO, fmtTime, todayInSchool, visitorLabel } from '@/lib/util';
 
 export default function EmployeePage() {
@@ -20,6 +21,7 @@ function Employee() {
   const mine = usePolling(() => api<Visit[]>('/visits/mine'));
   const requests = (mine.data ?? []).filter((v) => v.state === 'AWAITING_HOST' && v.hostId === user?.id);
   const others = (mine.data ?? []).filter((v) => !requests.includes(v));
+  useGateAlerts(mine.data === null ? null : requests);
 
   return (
     <>
@@ -29,7 +31,9 @@ function Employee() {
       <section className="card">
         <h2>Upcoming and recent</h2>
         <ErrorText message={mine.error} />
-        {others.length === 0 ? (
+        {mine.data === null ? (
+          <Loading what="your visitors" />
+        ) : others.length === 0 ? (
           <p className="muted">No visitors yet.</p>
         ) : (
           <table data-testid="my-visits">
@@ -55,26 +59,33 @@ function Employee() {
 }
 
 function Requests({ requests, onChange }: { requests: Visit[]; onChange: () => void }) {
-  const [error, setError] = useState<string | null>(null);
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  const answering = usePending<string>(); // `<visitId>:<decision>`
 
-  async function respond(id: string, decision: 'confirm' | 'decline') {
-    setError(null);
-    try {
-      await api(`/visits/${id}/respond`, { body: { decision, reason: reasons[id] || undefined } });
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    onChange();
-  }
+  const respond = (v: Visit, decision: 'confirm' | 'decline') =>
+    answering.run(`${v.id}:${decision}`, async () => {
+      try {
+        await api(`/visits/${v.id}/respond`, { body: { decision, reason: reasons[v.id] || undefined } });
+        if (decision === 'confirm') {
+          notify.success(`${visitorLabel(v)} confirmed`, { description: 'The front desk is issuing a visitor pass.' });
+        } else {
+          notify.success(`${visitorLabel(v)} declined`, { description: 'The front desk has been told not to admit them.' });
+        }
+      } catch (e) {
+        // usually "visit already changed": the request timed out or was answered elsewhere
+        notify.error(`Could not ${decision} ${visitorLabel(v)}`, { description: message(e) });
+      }
+      onChange();
+    });
 
   if (requests.length === 0) return null;
   return (
-    <section className="card attention" data-testid="requests">
-      <h2>Someone is at the gate for you</h2>
-      <ErrorText message={error} />
+    <section className="card attention enter-card" data-testid="requests">
+      <h2>
+        <span className="pulse-dot" aria-hidden="true" /> Someone is at the gate for you
+      </h2>
       {requests.map((v) => (
-        <div className="request" key={v.id} data-testid="request">
+        <div className="request enter" key={v.id} data-testid="request">
           <div>
             <strong>{visitorLabel(v)}</strong> — {v.purpose}
             <div className="muted">Waiting since {fmtTime(v.registeredAt)}. Is this visitor expected?</div>
@@ -85,12 +96,22 @@ function Requests({ requests, onChange }: { requests: Visit[]; onChange: () => v
             onChange={(e) => setReasons({ ...reasons, [v.id]: e.target.value })}
             aria-label="Decline reason"
           />
-          <button className="primary" onClick={() => respond(v.id, 'confirm')}>
+          <Button
+            className="primary"
+            onClick={() => respond(v, 'confirm')}
+            pending={answering.pending === `${v.id}:confirm`}
+            disabled={answering.pending !== null}
+          >
             Confirm
-          </button>
-          <button className="danger" onClick={() => respond(v.id, 'decline')}>
+          </Button>
+          <Button
+            className="danger"
+            onClick={() => respond(v, 'decline')}
+            pending={answering.pending === `${v.id}:decline`}
+            disabled={answering.pending !== null}
+          >
             Decline
-          </button>
+          </Button>
         </div>
       ))}
     </section>
@@ -102,12 +123,15 @@ function PreRegister({ onCreated }: { onCreated: () => void }) {
   const empty = { visitorName: '', visitorContact: '', purpose: '', date: today, windowStart: '', windowEnd: '', durationMinutes: 120 };
   const [f, setF] = useState(empty);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const saving = usePending();
 
-  async function submit(e: FormEvent) {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
+    return saving.run(true, save);
+  };
+
+  async function save() {
     setError(null);
-    setDone(null);
     try {
       await api('/visits', {
         body: {
@@ -120,7 +144,9 @@ function PreRegister({ onCreated }: { onCreated: () => void }) {
           durationMinutes: Number(f.durationMinutes),
         },
       });
-      setDone(`${f.visitorName} is on the list for ${f.date}.`);
+      notify.success(`${f.visitorName.trim()} added to expected visitors`, {
+        description: f.date === today ? 'The front desk can see them now.' : `Expected on ${f.date}.`,
+      });
       setF(empty);
       onCreated();
     } catch (err) {
@@ -167,30 +193,33 @@ function PreRegister({ onCreated }: { onCreated: () => void }) {
           </select>
         </label>
         <div className="actions">
-          <button className="primary">Add to expected visitors</button>
+          <Button className="primary" pending={saving.pending !== null} pendingLabel="Adding…">
+            Add to expected visitors
+          </Button>
         </div>
       </form>
       <p className="muted small">
         Visitor details are used only to manage this visit and are anonymised after one year.
       </p>
       <ErrorText message={error} />
-      {done && <p className="ok" role="status">{done}</p>}
     </section>
   );
 }
 
 function MyVisitRow({ v, onChange }: { v: Visit; onChange: () => void }) {
-  const [error, setError] = useState<string | null>(null);
-  async function cancel() {
-    try {
-      await api(`/visits/${v.id}/cancel`, { method: 'POST' });
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    onChange();
-  }
+  const cancelling = usePending();
+  const cancel = () =>
+    cancelling.run(true, async () => {
+      try {
+        await api(`/visits/${v.id}/cancel`, { method: 'POST' });
+        notify.success(`Visit by ${visitorLabel(v)} cancelled`);
+      } catch (e) {
+        notify.error(`Could not cancel the visit by ${visitorLabel(v)}`, { description: message(e) });
+      }
+      onChange();
+    });
   return (
-    <tr>
+    <tr className="enter">
       <td>{visitorLabel(v)}</td>
       <td>{v.purpose}</td>
       <td>{v.expectedDate}</td>
@@ -200,12 +229,46 @@ function MyVisitRow({ v, onChange }: { v: Visit; onChange: () => void }) {
       </td>
       <td>
         {v.state === 'PRE_REGISTERED' && (
-          <button className="link" onClick={cancel}>
+          <Button className="link" onClick={cancel} pending={cancelling.pending !== null} pendingLabel="Cancelling…">
             Cancel
-          </button>
+          </Button>
         )}
-        <ErrorText message={error} />
       </td>
     </tr>
   );
+}
+
+/**
+ * A host may be on another tab or scrolled away: put the count in the tab title, and toast each
+ * request that arrives after the page loaded (requests already waiting are shown by the card).
+ */
+function useGateAlerts(requests: Visit[] | null) {
+  const seen = useRef<Set<string> | null>(null);
+  const count = requests?.length ?? 0;
+  useEffect(() => {
+    const base = 'School Visitor Management';
+    document.title = count ? `(${count}) Visitor at the gate · ${base}` : base;
+    return () => {
+      document.title = base;
+    };
+  }, [count]);
+  useEffect(() => {
+    if (!requests) return;
+    if (seen.current) {
+      for (const v of requests) {
+        if (seen.current.has(v.id)) continue;
+        notify.info(`${visitorLabel(v)} is at the gate for you`, {
+          id: `gate-${v.id}`,
+          description: `${v.purpose}. Confirm or decline at the top of this page.`,
+          duration: 10000,
+          action: {
+            label: 'Show',
+            onClick: () =>
+              window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }),
+          },
+        });
+      }
+    }
+    seen.current = new Set(requests.map((r) => r.id));
+  }, [requests]);
 }

@@ -8,7 +8,7 @@ How to run: see `README.md`. Acceptance criteria (AC) are defined in `spec.md` s
 |---|---|---|---|
 | Unit | Jest, no Docker | Visit state machine (every legal and illegal transition), time rules (school day, closing instant, pre-registration date window, arrival window, overstay, timeout/reminder maths), PH mobile validation | Pure rules with many cases; fast, so each case gets its own test |
 | API / integration | Jest + Supertest + real PostgreSQL via Testcontainers, injected fixed clock | Both flows end to end through HTTP, permission denials, ownership, concurrency, timeouts and sweeps (via the job runner), notification failure, audit integrity (DB-level), retention, admin guards | Behaviour that depends on the database (conditional updates, grants), sessions and the whole service stack; a fixed clock makes time rules deterministic |
-| End-to-end | Playwright, real browser against `docker compose` | One walk-in journey from arrival to check-out across two users and two browsers; one permission check through the UI; the check-in confirmation dialog (cancel does nothing, confirm checks in) | Proves UI, proxy, API, DB and polling work together. Kept to the minimum because browser tests are slow and fragile |
+| End-to-end | Playwright, real browser against `docker compose` | One walk-in journey from arrival to check-out across two users and two browsers, including the toast that tells the guard the host confirmed; one permission check through the UI; the check-in confirmation dialog (cancel does nothing, confirm checks in) | Proves UI, proxy, API, DB and polling work together. Kept to the minimum because browser tests are slow and fragile |
 
 Rules followed: a rule is tested where it is cheapest to test thoroughly; higher levels only prove wiring. Where two levels touch the same AC, the unit test covers the rule logic and the integration test covers one wiring case (marked "+" below).
 
@@ -87,6 +87,8 @@ U = unit, I = integration, E = end-to-end. File names are under `backend/test/` 
 | Performance targets (p95 < 300 ms, ≤ 3 clicks) | Documented as targets, not benchmarks, at 40–80 visits/day; the click count is checked manually |
 | Cross-browser and mobile layouts | Only Chromium in CI; layout is responsive but was checked manually in one browser |
 | Accessibility audit | Labels, roles and focus styles are in place; no automated a11y scan |
+| Animation feel, reduced-motion variants, toast placement | Visual; checked by screenshots of the running stack and by reading the built CSS. Toast *content* for the main flow is asserted in e2e (D32) |
+| Offline banner and session-expiry redirect | Driven by network failure or a 401 during polling; checked manually by blocking `/api` in the browser. A candidate for a second e2e test |
 | Docker start-up and migrations | Exercised by the CI e2e job (`docker compose up`) and by every local run, not by a separate test |
 | Framework internals (NestJS, Next.js, React) | Not our code |
 | Visual regressions, load, soak and penetration tests | Out of scope for this release |

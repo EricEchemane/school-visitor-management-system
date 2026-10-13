@@ -1,10 +1,11 @@
 'use client';
 import { FormEvent, useState } from 'react';
 import { Shell } from '@/components/Shell';
-import { ErrorText, StateBadge } from '@/components/ui';
+import { Button, ErrorText, Loading, StateBadge } from '@/components/ui';
 import { api, Visit } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { usePolling } from '@/lib/hooks';
+import { usePending, usePolling } from '@/lib/hooks';
+import { message, notify } from '@/lib/notify';
 import { fmtDateTime, fmtTime, visitorLabel } from '@/lib/util';
 
 export default function AdminPage() {
@@ -56,9 +57,11 @@ function Live() {
     <section className="card" data-testid="admin-live">
       <h2>
         On campus now: {data?.count ?? '…'}
-        {!!data?.overstayedCount && <span className="badge overstay"> {data.overstayedCount} overstayed</span>}
+        {!!data?.overstayedCount && <span className="badge overstay">{data.overstayedCount} overstayed</span>}
       </h2>
       <ErrorText message={error} />
+      {!data && !error && <Loading what="visitors on campus" />}
+      {data?.visits.length === 0 && <p className="muted">No visitors on campus.</p>}
       <table>
         <thead>
           <tr>
@@ -95,6 +98,7 @@ function History() {
     <section className="card">
       <h2>Recent visits</h2>
       <ErrorText message={error} />
+      {!data && !error && <Loading what="visits" />}
       <table>
         <thead>
           <tr>
@@ -138,6 +142,7 @@ function Audit() {
       <h2>Audit trail</h2>
       <input placeholder="Filter by action, e.g. VISIT_CHECKED_IN" value={action} onChange={(e) => setAction(e.target.value.trim())} aria-label="Filter by action" />
       <ErrorText message={error} />
+      {!data && !error && <Loading what="the audit trail" />}
       <table>
         <thead>
           <tr>
@@ -168,6 +173,7 @@ function Messages() {
     <section className="card">
       <h2>Sent messages (simulated email and SMS)</h2>
       <ErrorText message={error} />
+      {!data && !error && <Loading what="messages" />}
       <table>
         <thead>
           <tr>
@@ -210,34 +216,40 @@ function Users() {
   const roles = usePolling(() => api<Role[]>('/admin/roles'), 30000);
   const [error, setError] = useState<string | null>(null);
   const [f, setF] = useState({ name: '', email: '', password: '', roleId: 0 });
+  const saving = usePending<string>(); // user id being changed, or 'new'
 
-  async function patch(id: string, body: object) {
-    setError(null);
-    try {
-      await api(`/admin/users/${id}`, { method: 'PATCH', body });
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    users.reload();
-  }
+  const patch = (u: { id: string; name: string }, body: { roleId?: number; active?: boolean }, what: string) =>
+    saving.run(u.id, async () => {
+      try {
+        await api(`/admin/users/${u.id}`, { method: 'PATCH', body });
+        notify.success(`${u.name}: ${what}`);
+      } catch (e) {
+        notify.error(`Could not update ${u.name}`, { description: message(e) });
+      }
+      await users.reload();
+    });
 
-  async function create(e: FormEvent) {
+  const create = (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
-    try {
-      await api('/admin/users', { body: { ...f, roleId: Number(f.roleId) } });
-      setF({ name: '', email: '', password: '', roleId: 0 });
-    } catch (err) {
-      setError((err as Error).message);
-    }
-    users.reload();
-  }
+    return saving.run('new', async () => {
+      setError(null);
+      try {
+        await api('/admin/users', { body: { ...f, roleId: Number(f.roleId) } });
+        notify.success(`User ${f.name.trim()} created`, { description: 'They can sign in with the temporary password.' });
+        setF({ name: '', email: '', password: '', roleId: 0 });
+      } catch (err) {
+        setError(message(err));
+      }
+      await users.reload();
+    });
+  };
+  const roleName = (id: number) => roles.data?.find((r) => r.id === id)?.name ?? 'new role';
 
   return (
     <>
       <section className="card">
         <h2>Users</h2>
-        <ErrorText message={error} />
+        {!users.data && <Loading what="users" />}
         <table data-testid="users">
           <thead>
             <tr>
@@ -253,7 +265,12 @@ function Users() {
                 <td>{u.name}</td>
                 <td>{u.email}</td>
                 <td>
-                  <select value={u.roleId} onChange={(e) => patch(u.id, { roleId: Number(e.target.value) })} aria-label={`Role for ${u.name}`}>
+                  <select
+                    value={u.roleId}
+                    onChange={(e) => patch(u, { roleId: Number(e.target.value) }, `role changed to ${roleName(Number(e.target.value))}`)}
+                    disabled={saving.pending === u.id}
+                    aria-label={`Role for ${u.name}`}
+                  >
                     {(roles.data ?? []).map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
@@ -262,7 +279,15 @@ function Users() {
                   </select>
                 </td>
                 <td>
-                  <input type="checkbox" checked={u.active} onChange={(e) => patch(u.id, { active: e.target.checked })} aria-label={`Active: ${u.name}`} />
+                  <input
+                    type="checkbox"
+                    checked={u.active}
+                    onChange={(e) =>
+                      patch(u, { active: e.target.checked }, e.target.checked ? 'reactivated' : 'deactivated and signed out')
+                    }
+                    disabled={saving.pending === u.id}
+                    aria-label={`Active: ${u.name}`}
+                  />
                 </td>
               </tr>
             ))}
@@ -298,9 +323,12 @@ function Users() {
             </select>
           </label>
           <div className="actions">
-            <button className="primary">Create user</button>
+            <Button className="primary" pending={saving.pending === 'new'} pendingLabel="Creating…">
+              Create user
+            </Button>
           </div>
         </form>
+        <ErrorText message={error} />
       </section>
     </>
   );
@@ -311,45 +339,54 @@ function Roles() {
   const perms = usePolling(() => api<string[]>('/admin/permissions'), 600000);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const saving = usePending<string>(); // `<roleId>:<permission>`, `delete:<roleId>` or 'new'
 
-  async function toggle(role: Role, perm: string) {
-    setError(null);
-    const next = role.permissions.includes(perm) ? role.permissions.filter((p) => p !== perm) : [...role.permissions, perm];
-    try {
-      await api(`/admin/roles/${role.id}/permissions`, { method: 'PUT', body: { permissions: next } });
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    roles.reload();
-  }
+  const toggle = (role: Role, perm: string) =>
+    saving.run(`${role.id}:${perm}`, async () => {
+      const adding = !role.permissions.includes(perm);
+      const next = adding ? [...role.permissions, perm] : role.permissions.filter((p) => p !== perm);
+      try {
+        await api(`/admin/roles/${role.id}/permissions`, { method: 'PUT', body: { permissions: next } });
+        notify.success(`${role.name}: ${adding ? 'added' : 'removed'} ${perm}`, {
+          description: 'Applies on their next request.',
+        });
+      } catch (e) {
+        notify.error(`Could not change ${role.name}`, { description: message(e) });
+      }
+      await roles.reload();
+    });
 
-  async function create(e: FormEvent) {
+  const create = (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
-    try {
-      await api('/admin/roles', { body: { name, permissions: [] } });
-      setName('');
-    } catch (err) {
-      setError((err as Error).message);
-    }
-    roles.reload();
-  }
+    return saving.run('new', async () => {
+      setError(null);
+      try {
+        await api('/admin/roles', { body: { name, permissions: [] } });
+        notify.success(`Role ${name.trim()} created`, { description: 'Tick the permissions it should have.' });
+        setName('');
+      } catch (err) {
+        setError(message(err));
+      }
+      await roles.reload();
+    });
+  };
 
-  async function remove(role: Role) {
-    setError(null);
-    try {
-      await api(`/admin/roles/${role.id}`, { method: 'DELETE' });
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    roles.reload();
-  }
+  const remove = (role: Role) =>
+    saving.run(`delete:${role.id}`, async () => {
+      try {
+        await api(`/admin/roles/${role.id}`, { method: 'DELETE' });
+        notify.success(`Role ${role.name} deleted`);
+      } catch (e) {
+        notify.error(`Could not delete ${role.name}`, { description: message(e) });
+      }
+      await roles.reload();
+    });
 
   return (
     <section className="card" data-testid="roles">
       <h2>Roles and permissions</h2>
       <p className="muted small">Changes apply on the person&apos;s next request. The Admin role always keeps user and role management.</p>
-      <ErrorText message={error} />
+      {!roles.data && <Loading what="roles" />}
       <div className="scroll">
         <table>
           <thead>
@@ -360,9 +397,9 @@ function Roles() {
                   {r.name}
                   <div className="muted small">{r.userCount} user(s)</div>
                   {!r.system && (
-                    <button className="link" onClick={() => remove(r)}>
+                    <Button className="link" onClick={() => remove(r)} pending={saving.pending === `delete:${r.id}`} pendingLabel="Deleting…">
                       Delete
-                    </button>
+                    </Button>
                   )}
                 </th>
               ))}
@@ -376,7 +413,13 @@ function Roles() {
                 </td>
                 {(roles.data ?? []).map((r) => (
                   <td key={r.id} className="center">
-                    <input type="checkbox" checked={r.permissions.includes(p)} onChange={() => toggle(r, p)} aria-label={`${r.name} ${p}`} />
+                    <input
+                      type="checkbox"
+                      checked={r.permissions.includes(p)}
+                      onChange={() => toggle(r, p)}
+                      disabled={saving.pending === `${r.id}:${p}`}
+                      aria-label={`${r.name} ${p}`}
+                    />
                   </td>
                 ))}
               </tr>
@@ -386,8 +429,11 @@ function Roles() {
       </div>
       <form className="inline" onSubmit={create}>
         <input placeholder="New role name" value={name} onChange={(e) => setName(e.target.value)} required aria-label="New role name" />
-        <button className="primary">Create role</button>
+        <Button className="primary" pending={saving.pending === 'new'} pendingLabel="Creating…">
+          Create role
+        </Button>
       </form>
+      <ErrorText message={error} />
     </section>
   );
 }

@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Shell } from '@/components/Shell';
-import { ErrorText, StateBadge } from '@/components/ui';
+import { Button, ErrorText, Loading, StateBadge } from '@/components/ui';
 import { api, ApiError, Visit } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { usePolling } from '@/lib/hooks';
+import { usePending, usePolling } from '@/lib/hooks';
+import { message, notify } from '@/lib/notify';
 import { fmtTime, visitorLabel } from '@/lib/util';
 
 export default function FrontDeskPage() {
@@ -26,8 +27,10 @@ interface OnCampus {
 function FrontDesk() {
   const { can } = useAuth();
   const [query, setQuery] = useState('');
-  const [notice, setNotice] = useState<{ text: string; visitId?: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [checkOutCode, setCheckOutCode] = useState('');
+  const [checkOutError, setCheckOutError] = useState<string | null>(null);
+  // keys: `in:<visitId>`, `out:<pass>:box` or `out:<pass>:row`, so each button knows if it is the busy one
+  const busy = usePending<string>();
   const [confirm, setConfirm] = useState<{
     title: string;
     message: string;
@@ -49,6 +52,8 @@ function FrontDesk() {
     campus.reload();
   };
 
+  useHostDecisionToasts(awaiting.data, outcomes.data, campus.data);
+
   const checkIn = (v: Visit) =>
     setConfirm({
       title: 'Check in this visitor?',
@@ -57,68 +62,78 @@ function FrontDesk() {
       run: () => runCheckIn(v),
     });
 
-  const checkOut = (code: string, who?: string) =>
+  // from: 'box' when typed into the check-out form (its error stays next to the form), else a row button
+  const checkOut = (code: string, who?: string, from: 'box' | 'row' = 'row') =>
     setConfirm({
       title: 'Check out this visitor?',
       message: `${who ? `Check out ${who} (pass ${code})` : `Check out pass ${code}`}. The pass will stop working.`,
       label: 'Check out',
-      run: () => runCheckOut(code),
+      run: () => runCheckOut(code, from),
     });
 
-  async function runCheckIn(v: Visit) {
-    setError(null);
-    try {
-      const res = await api<Visit>(`/visits/${v.id}/check-in`, { method: 'POST' });
-      setNotice({ text: `${visitorLabel(res)} checked in. Pass ${res.pass?.number} issued.`, visitId: res.id });
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    refresh();
-  }
+  const runCheckIn = (v: Visit) =>
+    busy.run(`in:${v.id}`, async () => {
+      const id = notify.loading(`Checking in ${visitorLabel(v)}…`);
+      try {
+        const res = await api<Visit>(`/visits/${v.id}/check-in`, { method: 'POST' });
+        notify.success(`${visitorLabel(res)} checked in`, {
+          id,
+          description: `Pass ${res.pass?.number} issued.`,
+          duration: 10000,
+          action: { label: 'Print pass', onClick: () => window.open(`/pass/${res.id}`, '_blank') },
+        });
+      } catch (e) {
+        notify.error(`Could not check in ${visitorLabel(v)}`, { id, description: message(e) });
+      }
+      refresh();
+    });
 
-  async function runCheckOut(code: string) {
-    setError(null);
-    try {
-      const res = await api<Visit>('/visits/check-out', { body: { code } });
-      setNotice({ text: `${visitorLabel(res)} checked out. Pass is no longer valid.` });
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    refresh();
-  }
+  const runCheckOut = (code: string, from: 'box' | 'row') =>
+    busy.run(`out:${code}:${from}`, async () => {
+      setCheckOutError(null);
+      const id = notify.loading(`Checking out pass ${code}…`);
+      try {
+        const res = await api<Visit>('/visits/check-out', { body: { code } });
+        notify.success(`${visitorLabel(res)} checked out`, { id, description: 'The pass is no longer valid.' });
+        if (from === 'box') setCheckOutCode('');
+      } catch (e) {
+        if (from === 'box') {
+          notify.dismiss(id);
+          setCheckOutError(message(e));
+        } else {
+          notify.error(`Could not check out pass ${code}`, { id, description: message(e) });
+        }
+      }
+      refresh();
+    });
 
   return (
     <>
       <h1>Front desk</h1>
-      {notice && (
-        <p className="ok" role="status" data-testid="notice">
-          {notice.text}{' '}
-          {notice.visitId && (
-            <Link href={`/pass/${notice.visitId}`} target="_blank">
-              Print pass
-            </Link>
-          )}
-        </p>
-      )}
-      <ErrorText message={error} />
 
       <div className="cols">
         <div>
-          <WalkIn onRegistered={refresh} setNotice={setNotice} />
+          <WalkIn onRegistered={refresh} />
           <section className="card" data-testid="awaiting">
             <h2>Waiting for the host</h2>
-            {(awaiting.data ?? []).length === 0 && <p className="muted">Nobody is waiting.</p>}
+            {awaiting.data === null ? (
+              <Loading what="requests" />
+            ) : (
+              awaiting.data.length === 0 && (outcomes.data ?? []).length === 0 && <p className="muted">Nobody is waiting.</p>
+            )}
             {(awaiting.data ?? []).map((v) => (
-              <div className="row" key={v.id} data-testid="awaiting-row">
+              <div className="row enter" key={v.id} data-testid="awaiting-row">
                 <span>
                   <strong>{visitorLabel(v)}</strong> → {v.hostName}
                   <span className="muted"> · since {fmtTime(v.registeredAt)}</span>
                 </span>
-                <StateBadge state={v.state} />
+                <span className="badge s-AWAITING_HOST waiting">
+                  <span className="pulse-dot" aria-hidden="true" /> Waiting for host
+                </span>
               </div>
             ))}
             {(outcomes.data ?? []).map((v) => (
-              <div className="row" key={v.id} data-testid="outcome-row">
+              <div className="row enter" key={v.id} data-testid="outcome-row">
                 <span>
                   <strong>{visitorLabel(v)}</strong> → {v.hostName}
                   <span className="muted">
@@ -146,9 +161,15 @@ function FrontDesk() {
               data-testid="search"
             />
             <div data-testid="expected">
-              {(expected.data ?? []).length === 0 && <p className="muted">No expected visitors match.</p>}
+              {expected.data === null ? (
+                <Loading what="expected visitors" />
+              ) : (
+                expected.data.length === 0 && (
+                  <p className="muted">{query ? 'No expected visitors match.' : 'No more visitors expected today.'}</p>
+                )
+              )}
               {(expected.data ?? []).map((v) => (
-                <div className="row" key={v.id} data-testid="expected-row">
+                <div className="row enter" key={v.id} data-testid="expected-row">
                   <span>
                     <strong>{visitorLabel(v)}</strong> → {v.hostName}
                     <span className="muted">
@@ -157,9 +178,9 @@ function FrontDesk() {
                       {v.windowStart ? ` · ${v.windowStart}${v.windowEnd ? '–' + v.windowEnd : ''}` : ''}
                     </span>
                   </span>
-                  <button className="primary" onClick={() => checkIn(v)}>
+                  <Button className="primary" onClick={() => checkIn(v)} pending={busy.pending === `in:${v.id}`} disabled={!!busy.pending}>
                     Check in
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
@@ -167,17 +188,32 @@ function FrontDesk() {
 
           <section className="card">
             <h2>Check out</h2>
-            <CheckOutBox onCheckOut={checkOut} />
+            <CheckOutBox
+              code={checkOutCode}
+              onChange={(c) => {
+                setCheckOutCode(c);
+                setCheckOutError(null);
+              }}
+              onCheckOut={(code) => checkOut(code, undefined, 'box')}
+              pending={!!busy.pending?.endsWith(':box')}
+            />
+            <ErrorText message={checkOutError} />
           </section>
         </div>
       </div>
 
+      {can('visit:view_all') && !campus.data && (
+        <section className="card">
+          <h2>On campus now</h2>
+          <Loading what="visitors on campus" />
+        </section>
+      )}
       {campus.data && (
         <section className="card" data-testid="on-campus">
           <h2>
             On campus now: <span data-testid="campus-count">{campus.data.count}</span>
             {campus.data.overstayedCount > 0 && (
-              <span className="badge overstay"> {campus.data.overstayedCount} overstayed</span>
+              <span className="badge overstay">{campus.data.overstayedCount} overstayed</span>
             )}
           </h2>
           {campus.data.visits.length === 0 ? (
@@ -196,7 +232,7 @@ function FrontDesk() {
               </thead>
               <tbody>
                 {campus.data.visits.map((v) => (
-                  <tr key={v.id} data-testid="campus-row">
+                  <tr key={v.id} className="enter" data-testid="campus-row">
                     <td>{v.pass?.number}</td>
                     <td>
                       {visitorLabel(v)} {v.overstayed && <StateBadge state={v.state} overstayed />}
@@ -210,7 +246,13 @@ function FrontDesk() {
                           Pass
                         </Link>
                         {can('visit:checkout') && v.pass && (
-                          <button onClick={() => checkOut(v.pass!.number, visitorLabel(v))}>Check out</button>
+                          <Button
+                            onClick={() => checkOut(v.pass!.number, visitorLabel(v))}
+                            pending={busy.pending === `out:${v.pass.number}:row`}
+                            disabled={!!busy.pending}
+                          >
+                            Check out
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -237,46 +279,53 @@ function FrontDesk() {
   );
 }
 
-function CheckOutBox({ onCheckOut }: { onCheckOut: (code: string) => void }) {
-  const [code, setCode] = useState('');
+function CheckOutBox({
+  code,
+  onChange,
+  onCheckOut,
+  pending,
+}: {
+  code: string;
+  onChange: (code: string) => void;
+  onCheckOut: (code: string) => void;
+  pending: boolean;
+}) {
   return (
     <form
       className="inline"
       onSubmit={(e) => {
         e.preventDefault();
         if (code.trim()) onCheckOut(code.trim());
-        setCode('');
       }}
     >
       <input
         placeholder="Pass number (e.g. V-0001) or scanned code"
         value={code}
-        onChange={(e) => setCode(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         aria-label="Pass number"
         data-testid="checkout-code"
       />
-      <button className="primary" data-testid="checkout-submit">
+      <Button className="primary" data-testid="checkout-submit" pending={pending}>
         Check out
-      </button>
+      </Button>
     </form>
   );
 }
 
-function WalkIn({
-  onRegistered,
-  setNotice,
-}: {
-  onRegistered: () => void;
-  setNotice: (n: { text: string } | null) => void;
-}) {
+function WalkIn({ onRegistered }: { onRegistered: () => void }) {
   const hosts = usePolling(() => api<{ id: string; name: string }[]>('/hosts'), 60_000);
   const empty = { visitorName: '', visitorContact: '', purpose: '', hostId: '' };
   const [f, setF] = useState(empty);
   const [error, setError] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState(false);
+  const sending = usePending();
 
-  async function submit(e: FormEvent, confirmDuplicate = false) {
+  const submit = (e: FormEvent, confirmDuplicate = false) => {
     e.preventDefault();
+    return sending.run(true, () => send(confirmDuplicate));
+  };
+
+  async function send(confirmDuplicate: boolean) {
     setError(null);
     try {
       await api('/visits/walk-in', {
@@ -288,7 +337,10 @@ function WalkIn({
           confirmDuplicate,
         },
       });
-      setNotice({ text: `Request sent to the host for ${f.visitorName}. Ask the visitor to wait.` });
+      const host = (hosts.data ?? []).find((h) => h.id === f.hostId)?.name ?? 'the host';
+      notify.success(`Request sent to ${host}`, {
+        description: `Ask ${f.visitorName.trim()} to wait. You will be told here when ${host} answers.`,
+      });
       setF(empty);
       setDuplicate(false);
       onRegistered();
@@ -333,13 +385,18 @@ function WalkIn({
           <input value={f.visitorContact} onChange={(e) => setF({ ...f, visitorContact: e.target.value })} placeholder="0917 000 0000" />
         </label>
         <div className="actions">
-          <button className="primary" data-testid="walkin-submit">
+          <Button className="primary" data-testid="walkin-submit" pending={sending.pending !== null} pendingLabel="Notifying…">
             Notify host
-          </button>
+          </Button>
           {duplicate && (
-            <button type="button" onClick={(e) => submit(e as unknown as FormEvent, true)} data-testid="walkin-confirm-duplicate">
+            <Button
+              type="button"
+              onClick={(e) => submit(e as unknown as FormEvent, true)}
+              disabled={sending.pending !== null}
+              data-testid="walkin-confirm-duplicate"
+            >
               Different person: register anyway
-            </button>
+            </Button>
           )}
         </div>
       </form>
@@ -349,4 +406,44 @@ function WalkIn({
       <ErrorText message={error} />
     </section>
   );
+}
+
+/**
+ * Tells the guard, without them watching the list, when a host answers a walk-in or the request
+ * times out. Polls run independently, so a visit that left "awaiting" is remembered until it
+ * shows up on campus or among the outcomes.
+ */
+function useHostDecisionToasts(awaiting: Visit[] | null, outcomes: Visit[] | null, campus: OnCampus | null) {
+  const watched = useRef(new Map<string, Visit>());
+  useEffect(() => {
+    if (!awaiting) return;
+    for (const v of awaiting) watched.current.set(v.id, v);
+    const stillWaiting = new Set(awaiting.map((v) => v.id));
+    for (const [id, v] of watched.current) {
+      if (stillWaiting.has(id)) continue;
+      const admitted = campus?.visits.find((c) => c.id === id);
+      const outcome = outcomes?.find((o) => o.id === id);
+      if (admitted) {
+        notify.success(`${v.hostName} confirmed ${visitorLabel(v)}`, {
+          id: `decision-${id}`,
+          description: `Pass ${admitted.pass?.number ?? ''} issued. The visitor may enter.`,
+          duration: 10000,
+          action: { label: 'Print pass', onClick: () => window.open(`/pass/${id}`, '_blank') },
+        });
+      } else if (outcome?.state === 'DECLINED') {
+        notify.warning(`${v.hostName} declined ${visitorLabel(v)}. Do not admit.`, {
+          id: `decision-${id}`,
+          description: outcome.declineReason ? `Reason: “${outcome.declineReason}”` : undefined,
+        });
+      } else if (outcome?.state === 'EXPIRED') {
+        notify.warning(`No answer from ${v.hostName} for ${visitorLabel(v)}`, {
+          id: `decision-${id}`,
+          description: 'Do not admit. Register again to retry, or choose another host.',
+        });
+      } else {
+        continue; // not visible in the other lists yet: check again on the next poll
+      }
+      watched.current.delete(id);
+    }
+  }, [awaiting, outcomes, campus]);
 }

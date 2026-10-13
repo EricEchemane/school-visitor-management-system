@@ -4,8 +4,9 @@
 
 | Tool | Used for |
 |---|---|
-| Claude Code (CLI, Claude Sonnet 5.5) | Interviewing the author to shape the spec; drafting `spec.md`, `assumptions.md`, `RBAC.md`, `test-plan.md`, README; writing the backend, frontend, tests, Docker and CI files; running tests, audits and an exploratory session against the live stack |
+| Claude Code (CLI, Claude Opus 5.5) | Interviewing the author to shape the spec; drafting `spec.md`, `assumptions.md`, `RBAC.md`, `test-plan.md`, README; writing the backend, frontend, tests, Docker and CI files; running tests, audits and an exploratory session against the live stack |
 | Claude Code skill `grilling` (user's personal skill) | Ran the requirements interview: one decision at a time, each with a recommended answer, until every branch of the design tree was settled |
+| Emil Kowalski's design skills (`emilkowalski/skill`: `animate`, `ask-sonner`, `emil-design-eng`, `find-animation-opportunities`, `break-ui`, `pick-ui-library`) | Guided the UI feedback pass: toasts with Sonner, pending and loading states, and limited motion with reduced-motion support. Installed only for that work and removed before submission |
 | No other AI tools | |
 
 ## 2. How the work was framed (process, in order)
@@ -62,7 +63,7 @@ Only genuine corrections of AI output are listed; requirement changes made by th
 
 **How the work was split.** I made the product decisions; Claude Code wrote nearly all of the code and tests, and the first drafts of the documents. The decisions came out of the requirements interview and are recorded in `decisions.md` as I made them. The places where I overrode or changed the AI's recommendation are listed in §2. The most important ones for the design: TypeScript instead of Java/Angular; single school instead of multi-tenant; data-driven custom roles instead of fixed ones; polling instead of SSE; and building the correction path for unverified departures.
 
-**What I checked against the running system.** I used the app in each role and asked for the changes in `8bde403`, `8811a15` and `90e5829`: the select chevron, row alignment and button wrapping, the overstay badge spacing, and confirmation dialogs before check-in and check-out. Before submitting, I had the repository reviewed against the exam brief. That review found the missing API section and the spec drift described in §5 item 10, and closed the last test gap the test plan listed.
+**What I checked against the running system.** I used the app in each role and asked for the changes in `8bde403`, `8811a15` and `90e5829`: the select chevron, row alignment and button wrapping, the overstay badge spacing, and confirmation dialogs before check-in and check-out. Later I asked for clearer feedback on every action: toasts, loading and pending states, and motion only where it signals activity or a result (`a1f1268`). The first toasts were tinted green and red and did not look like the rest of the app, so I had them restyled to match the app's cards, with colour only on the icon, centred at the bottom and shown for 6 s (`147acda`). Before submitting, I had the repository reviewed against the exam brief. That review found the missing API section and the spec drift described in §5 item 10, and closed the last test gap the test plan listed.
 
 **Where I would start a walkthrough.** For the domain rule: `backend/src/domain/visit-state.ts`, which lists every legal transition, and `VisitsService.transition`, which turns it into a conditional `UPDATE` so the first writer wins. For authorisation: the guard in `backend/src/common/auth.ts`, which allows a route if the user holds any of the listed permissions. For the database guardrail: the grants in `backend/src/db/migrate.ts`, which make `audit_events` insert/select only.
 

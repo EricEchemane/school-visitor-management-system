@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Shell } from '@/components/Shell';
 import { ErrorText, StateBadge } from '@/components/ui';
 import { api, ApiError, Visit } from '@/lib/api';
@@ -27,6 +28,12 @@ function FrontDesk() {
   const [query, setQuery] = useState('');
   const [notice, setNotice] = useState<{ text: string; visitId?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    message: string;
+    label: string;
+    run: () => Promise<void>;
+  } | null>(null);
 
   const expected = usePolling(() => api<Visit[]>(`/visits/expected?q=${encodeURIComponent(query)}`));
   const awaiting = usePolling(() => api<Visit[]>('/visits/awaiting'));
@@ -42,7 +49,23 @@ function FrontDesk() {
     campus.reload();
   };
 
-  async function checkIn(v: Visit) {
+  const checkIn = (v: Visit) =>
+    setConfirm({
+      title: 'Check in this visitor?',
+      message: `Check in ${visitorLabel(v)} to see ${v.hostName}. A visitor pass will be issued.`,
+      label: 'Check in',
+      run: () => runCheckIn(v),
+    });
+
+  const checkOut = (code: string, who?: string) =>
+    setConfirm({
+      title: 'Check out this visitor?',
+      message: `${who ? `Check out ${who} (pass ${code})` : `Check out pass ${code}`}. The pass will stop working.`,
+      label: 'Check out',
+      run: () => runCheckOut(code),
+    });
+
+  async function runCheckIn(v: Visit) {
     setError(null);
     try {
       const res = await api<Visit>(`/visits/${v.id}/check-in`, { method: 'POST' });
@@ -53,7 +76,7 @@ function FrontDesk() {
     refresh();
   }
 
-  async function checkOut(code: string) {
+  async function runCheckOut(code: string) {
     setError(null);
     try {
       const res = await api<Visit>('/visits/check-out', { body: { code } });
@@ -187,7 +210,7 @@ function FrontDesk() {
                           Pass
                         </Link>
                         {can('visit:checkout') && v.pass && (
-                          <button onClick={() => checkOut(v.pass!.number)}>Check out</button>
+                          <button onClick={() => checkOut(v.pass!.number, visitorLabel(v))}>Check out</button>
                         )}
                       </div>
                     </td>
@@ -198,6 +221,18 @@ function FrontDesk() {
           )}
         </section>
       )}
+      <ConfirmDialog
+        open={!!confirm}
+        title={confirm?.title ?? ''}
+        message={confirm?.message ?? ''}
+        confirmLabel={confirm?.label ?? 'Confirm'}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          const action = confirm;
+          setConfirm(null); // close first so a double click cannot run it twice
+          void action?.run();
+        }}
+      />
     </>
   );
 }

@@ -89,3 +89,9 @@ h2 .badge { margin-left: 0.6rem; vertical-align: middle; }
 .pass-number { font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .pass-name { font-size: 1.3rem; font-weight: 700; }
 @media print { .no-print { display: none !important; } body { background: #fff; } .page { padding: 0; } }
+
+.dialog { border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem 1.5rem; max-width: 420px; width: calc(100% - 2rem); color: var(--text); box-shadow: 0 12px 32px rgba(16, 24, 40, 0.18); }
+.dialog::backdrop { background: rgba(16, 24, 40, 0.45); }
+.dialog h2 { margin-bottom: 0.5rem; }
+.dialog p { margin: 0 0 1.25rem; color: var(--muted); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }

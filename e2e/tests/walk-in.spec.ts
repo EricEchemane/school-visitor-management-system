@@ -37,11 +37,14 @@ test('walk-in visitor: guard registers, host confirms, pass issued, guard checks
   // 4. Guard checks out with the pass number; the pass stops being valid
   await guard.getByTestId('checkout-code').fill(passNumber);
   await guard.getByTestId('checkout-submit').click();
+  await expect(guard.getByTestId('confirm-dialog')).toContainText(`pass ${passNumber}`);
+  await guard.getByTestId('confirm-yes').click();
   await expect(guard.getByTestId('notice')).toContainText('checked out');
   await expect(guard.getByTestId('campus-row').filter({ hasText: visitor })).toHaveCount(0);
 
   await guard.getByTestId('checkout-code').fill(passNumber);
   await guard.getByTestId('checkout-submit').click();
+  await guard.getByTestId('confirm-yes').click();
   await expect(guard.getByTestId('error')).toContainText('no longer valid');
 });
 
@@ -54,4 +57,34 @@ test('permissions are enforced: an employee cannot open the front desk or call i
   await expect(teacher.getByTestId('error')).toContainText('do not have access');
   const status = await teacher.evaluate(async () => (await fetch('/api/visits/on-campus')).status);
   expect(status).toBe(403);
+});
+
+test('check-in asks for confirmation: cancel changes nothing, confirm checks the visitor in', async ({ browser }) => {
+  const visitor = `Paula Planner ${Date.now()}`;
+  const hostCtx = await browser.newContext();
+  const host = await hostCtx.newPage();
+  await signIn(host, 'teacher2@school.test');
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const created = await host.request.post('/api/visits', {
+    data: { visitorName: visitor, purpose: 'Planning meeting', date: today },
+  });
+  expect(created.ok()).toBeTruthy();
+
+  const guard = await (await browser.newContext()).newPage();
+  await signIn(guard, 'frontdesk1@school.test');
+  await guard.goto('/frontdesk');
+  await guard.getByTestId('search').fill(visitor);
+  const row = guard.getByTestId('expected-row').filter({ hasText: visitor });
+  await row.getByRole('button', { name: 'Check in' }).click();
+
+  const dialog = guard.getByTestId('confirm-dialog');
+  await expect(dialog).toContainText(visitor);
+  await guard.getByTestId('confirm-cancel').click();
+  await expect(dialog).toBeHidden();
+  await expect(row).toBeVisible(); // still expected, nothing happened
+
+  await row.getByRole('button', { name: 'Check in' }).click();
+  await guard.getByTestId('confirm-yes').click();
+  await expect(guard.getByTestId('notice')).toContainText('checked in');
+  await expect(guard.getByTestId('campus-row').filter({ hasText: visitor })).toBeVisible({ timeout: 15_000 });
 });

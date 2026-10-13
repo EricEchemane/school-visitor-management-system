@@ -2,7 +2,7 @@
 
 Pre-register visitors, confirm walk-ins with the host before a pass is issued, check visitors out, and see who is on campus right now. Built for a single K-12 campus (about 150 employees, 40–80 visitors a day).
 
-Start with `docs/spec.md`. Other documents: `docs/decisions.md` (why we chose what we chose), `docs/RBAC.md` (roles and permissions), `docs/assumptions.md`, `docs/test-plan.md`, `docs/ai-usage.md`.
+Start with [`docs/spec.md`](docs/spec.md). Other documents: [`docs/decisions.md`](docs/decisions.md) (why we chose what we chose), [`docs/RBAC.md`](docs/RBAC.md) (roles and permissions), [`docs/assumptions.md`](docs/assumptions.md), [`docs/test-plan.md`](docs/test-plan.md), [`docs/ai-usage.md`](docs/ai-usage.md).
 
 ## Run it
 
@@ -12,16 +12,20 @@ Requires **Docker** (with Compose). Nothing else.
 docker compose up --build
 ```
 
+The first build downloads images and installs dependencies, so allow a few minutes; later starts take seconds. The stack is ready when the backend logs `Nest application successfully started` and http://localhost:4000/api/health returns `{"status":"ok"}` (the containers report as started a few seconds before that).
+
 - App: http://localhost:3000
 - API health: http://localhost:4000/api/health
 
 The first start creates the database, applies the schema, and loads fictional seed users and a few sample visits. Stop with `Ctrl+C`; reset all data with `docker compose down -v`.
 
+If the start fails with "port is already allocated", something else is using port 3000 or 4000. Stop it (`lsof -i :3000` shows what it is), or change the left-hand side of `ports` in `docker-compose.yml`, e.g. `'3001:3000'`.
+
 ### Seeded logins (fictional; password for all: `Passw0rd!demo`)
 
 | Role | Email | Use it to |
 |---|---|---|
-| Front Desk | `frontdesk1@school.test` (also `frontdesk2@…`) | Check in, register walk-ins, check out, print passes |
+| Front Desk (the guard) | `frontdesk1@school.test` (also `frontdesk2@…`) | Check in, register walk-ins, check out, print passes |
 | Employee | `teacher1@school.test` (Teresa Reyes), `teacher2@…` (Tomas Cruz), `teacher3@…`, `registrar@…`, `principal@…`, `counselor@…` | Pre-register visitors, confirm or decline walk-ins |
 | Admin | `admin@school.test` | Live view, all visits, audit trail, sent messages, users, roles and permissions |
 
@@ -31,12 +35,12 @@ The first start creates the database, applies the schema, and loads fictional se
 2. Front desk: under **Walk-in visitor**, enter a name, pick Teresa Reyes, add a purpose, **Notify host**.
 3. Teresa's page shows "Someone is at the gate for you" within about 5 seconds. Click **Confirm**.
 4. Front desk: the visitor appears under **On campus now** with a pass number (e.g. `V-0003`). Click **Pass** to see the printable pass with its QR code.
-5. Enter the pass number in **Check out**. The visitor leaves the list and the pass stops working.
+5. Enter the pass number in **Check out** and confirm in the dialog. The visitor leaves the list and the pass stops working.
 6. As Admin, open **Audit trail** to see every step, and **Sent messages** for the simulated email.
 
-Pre-registration: as Teresa, **Expect a visitor** for today; as the guard, search **Expected today** and **Check in**.
+Pre-registration: as Teresa, **Expect a visitor** for today; as the guard, search **Expected today**, click **Check in** and confirm in the dialog.
 
-The demo stack uses a closing time of 23:59 Manila time, so the closing-time sweep does not check everyone out if you try it in the evening. The product default is 18:00; to see the sweep, start with `CLOSING_TIME=18:00 docker compose up --build` (it applies on first start; later, edit the `settings` table).
+The demo stack uses a closing time of 23:59 Manila time, so the closing-time sweep does not check everyone out if you try it in the evening. The product default is 18:00; to see the sweep, start with `CLOSING_TIME=18:00 docker compose up --build`. The setting is read only when the database is first created, so if you have already started the stack, run `docker compose down -v` first (this deletes the demo data).
 
 Seeded sample data shows an overstayed visitor and expected visitors. To see the notification-failure path, set `SIMULATE_CHANNEL_FAILURES: EMAIL` (or `SMS`, or `EMAIL,SMS`) in `docker-compose.yml` and restart; the failed attempt shows in **Sent messages** and the in-app notification still arrives.
 
@@ -45,19 +49,28 @@ Seeded sample data shows an overstayed visitor and expected visitors. To see the
 Needs Node 20+ (22 recommended) and Docker (integration tests start PostgreSQL with Testcontainers).
 
 ```bash
+# from the repository root
+
 # backend: lint, unit tests (no Docker), integration tests (Docker)
 cd backend && npm ci
 npm run lint
 npm test            # unit
 npm run test:int    # integration, real PostgreSQL
+cd ..
 
-# end-to-end: start the stack first, then
+# frontend: lint and production build
+cd frontend && npm ci
+npm run lint
+npm run build
+cd ..
+
+# end-to-end: start the stack (skip if it is already running), wait until it is ready, then
 docker compose up --build -d
+until curl -sf http://localhost:4000/api/health; do sleep 1; done
 cd e2e && npm ci && npx playwright install chromium
-npm test
+npm test            # 3 Playwright tests
+cd ..
 ```
-
-Frontend: `cd frontend && npm ci && npm run lint && npm run build`.
 
 The CI pipeline (`.github/workflows/ci.yml`) runs all of this plus `npm audit` on every push. Enable the local pre-commit hook (lint and unit tests) with `git config core.hooksPath .githooks`.
 

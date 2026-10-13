@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.next/
+.env
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+# exam material is confidential
+*.pdf

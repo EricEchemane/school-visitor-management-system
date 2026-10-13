@@ -55,7 +55,7 @@ U = unit, I = integration, E = end-to-end. File names are under `backend/test/` 
 | 10.3 | Admin role and last admin protected | I `security` › protects the Admin role and the last admin |
 | 10.4 | Login rate limit; logout and deactivation end sessions | I `security` › rate-limits; logout; deactivated user |
 | 11.1 | Pass data has no contact number | I `flows` › pre-registered flow (pass endpoint) |
-| 12.1 | Old visits anonymised, facts kept | I `rules-and-jobs` › data retention |
+| 12.1 | Old visits anonymised, facts kept; open visits never anonymised | I `rules-and-jobs` › data retention (both tests) |
 
 ## 3. Edge cases and failure scenarios
 
@@ -88,7 +88,6 @@ U = unit, I = integration, E = end-to-end. File names are under `backend/test/` 
 | Cross-browser and mobile layouts | Only Chromium in CI; layout is responsive but was checked manually in one browser |
 | Accessibility audit | Labels, roles and focus styles are in place; no automated a11y scan |
 | Docker start-up and migrations | Exercised by the CI e2e job (`docker compose up`) and by every local run, not by a separate test |
-| Retention exclusion of open visits (`anonymiseOld` skips active states) | Gap: not asserted by a test yet. Listed in README next steps |
 | Framework internals (NestJS, Next.js, React) | Not our code |
 | Visual regressions, load, soak and penetration tests | Out of scope for this release |
 

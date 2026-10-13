@@ -94,7 +94,6 @@ Stack note: the exam suggests Java/Spring Boot and Angular. This uses TypeScript
 - Updates arrive by polling (every ~5 seconds), not push.
 - Login rate limiting is keyed by email only (a targeted lock-out is possible); sessions are not `Secure` unless `COOKIE_SECURE=true` (the demo runs over HTTP).
 - No visitor profiles, do-not-admit list, group or recurring visits, kiosk, or physical-lanyard tracking.
-- The anonymisation job's exclusion of open visits has no dedicated test yet.
 - Seed data and tests are fictional. The database password in `docker-compose.yml` is for local demo only.
 
 ## What I would do next

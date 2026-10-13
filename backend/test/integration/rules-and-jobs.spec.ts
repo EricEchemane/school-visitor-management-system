@@ -1,4 +1,5 @@
 import { TestApp, USERS, startTestApp, BASE_TIME } from './helpers';
+import { VisitsService } from '../../src/services/visits.service';
 
 describe('time-based rules and failure paths', () => {
   let t: TestApp;
@@ -198,6 +199,31 @@ describe('time-based rules and failure paths', () => {
       expect(row.visitorContact).toBeNull();
       expect(row.purpose).toBe('Enrolment');
       expect(row.state).toBe('CANCELLED');
+    });
+
+    it('never anonymises a visit that is still open, however old', async () => {
+      const teacher = await t.as(USERS.teacher1);
+      const guard = await t.as(USERS.guard);
+      const pre = await teacher
+        .post('/api/visits')
+        .send({ visitorName: 'Olive Open', purpose: 'Meeting', date: '2026-03-10' })
+        .expect(201);
+      await guard.post(`/api/visits/${pre.body.id}/check-in`).expect(200);
+      const awaitingId = await walkIn('Arturo Awaiting');
+
+      t.clock.set(new Date('2027-03-12T02:00:00Z')); // > 1 year later
+      // Call the retention step alone: runAll() would close these visits first (sweep, expiry)
+      expect(await t.app.get(VisitsService).anonymiseOld()).toBe(0);
+      const admin = await t.as(USERS.admin);
+      const history = (await admin.get('/api/visits/history').expect(200)).body;
+      expect(history.find((x: any) => x.id === pre.body.id)).toMatchObject({ visitorName: 'Olive Open', anonymised: false });
+      expect(history.find((x: any) => x.id === awaitingId)).toMatchObject({ visitorName: 'Arturo Awaiting', anonymised: false });
+
+      // Once the jobs close them, the next retention step clears them
+      await t.jobs.runAll();
+      const after = (await admin.get('/api/visits/history').expect(200)).body;
+      expect(after.find((x: any) => x.id === pre.body.id)).toMatchObject({ state: 'CHECKED_OUT', visitorName: null });
+      expect(after.find((x: any) => x.id === awaitingId)).toMatchObject({ state: 'EXPIRED', visitorName: null });
     });
   });
 });

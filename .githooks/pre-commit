@@ -1,0 +1,11 @@
+#!/bin/sh
+# Fast guardrail: lint + unit tests (backend) and lint (frontend) before every commit.
+# Enable once with: git config core.hooksPath .githooks
+set -e
+root=$(git rev-parse --show-toplevel)
+if git diff --cached --name-only | grep -q '^backend/'; then
+  (cd "$root/backend" && npm run --silent lint && npm test --silent)
+fi
+if git diff --cached --name-only | grep -q '^frontend/'; then
+  (cd "$root/frontend" && npm run --silent lint)
+fi

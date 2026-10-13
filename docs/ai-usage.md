@@ -6,6 +6,7 @@
 |---|---|
 | Claude Code (CLI, Claude Sonnet 5.5) | Interviewing the author to shape the spec; drafting `spec.md`, `assumptions.md`, `RBAC.md`, `test-plan.md`, README; writing the backend, frontend, tests, Docker and CI files; running tests, audits and an exploratory session against the live stack |
 | Claude Code skill `grilling` (user's personal skill) | Ran the requirements interview: one decision at a time, each with a recommended answer, until every branch of the design tree was settled |
+| Design skills in `.agents/skills/` (linked from `.claude/skills/`) | The author's general skill library for UI and motion work (e.g. `emil-design-eng`, `break-ui`, `animate`), committed so the setup is reproducible. They were not used to build this module; the only project-specific skills are `new-capability` and `review-against-spec` |
 | No other AI tools | |
 
 ## 2. How the work was framed (process, in order)
@@ -29,7 +30,7 @@
 |---|---|
 | Domain unit tests (67 → 68) | Every illegal state transition; time-rule edges |
 | Integration tests on real PostgreSQL (29) | Permission denials, race between answer and timeout, audit table immutability at the database level, sweep/retention behaviour |
-| Playwright e2e (2) | The UI, proxy, API, DB and polling working together |
+| Playwright e2e (3) | The UI, proxy, API, DB and polling working together; the check-in confirmation dialog |
 | ESLint (+ React rules) and TypeScript strict mode | See corrections below |
 | `npm audit --omit=dev --audit-level=high`, also in CI | See corrections below |
 | Pre-commit hook (lint + unit tests) and GitHub Actions CI | Regressions before they reach the history |

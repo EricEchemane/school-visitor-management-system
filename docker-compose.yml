@@ -25,9 +25,9 @@ services:
       DATABASE_URL: postgres://svm_app:app-secret@db:5432/svm
       APP_DB_PASSWORD: app-secret
       PORT: 4000
-      # Applied on first start only (later changes: edit the `settings` table). The sweep at this time
-      # checks out everyone still on campus, so use e.g. 23:59 if you demo or test in the evening.
-      CLOSING_TIME: ${CLOSING_TIME:-18:00}
+      # Demo default 23:59 so the closing sweep does not empty the screens for an evening reviewer.
+      # The product default (no env var) is 18:00. Applied on first start only; later, edit the `settings` table.
+      CLOSING_TIME: ${CLOSING_TIME:-23:59}
       # Set to EMAIL, SMS or EMAIL,SMS to see the notification-failure path.
       SIMULATE_CHANNEL_FAILURES: ''
     ports:

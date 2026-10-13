@@ -63,6 +63,16 @@ describe('visit flows', () => {
       );
     });
 
+    it('the guard cannot check in a walk-in: only the host can confirm (AC-4.2)', async () => {
+      const guard = await t.as(USERS.guard);
+      const v = await guard
+        .post('/api/visits/walk-in')
+        .send({ visitorName: 'Gus Guard', purpose: 'Visit', hostId: t.ids[USERS.teacher1] })
+        .expect(201);
+      const res = await guard.post(`/api/visits/${v.body.id}/check-in`).expect(409);
+      expect(res.body.code).toBe('VISIT_ALREADY_CHANGED');
+    });
+
     it('declines: no pass, reason visible to the guard, decision is final (AC-4.3, AC-4.5)', async () => {
       const guard = await t.as(USERS.guard);
       const teacher = await t.as(USERS.teacher1);
@@ -138,6 +148,15 @@ describe('visit flows', () => {
       // AC-5.1: QR token works for check-out
       const out = await guard.post('/api/visits/check-out').send({ code: checkedIn.body.pass.token }).expect(200);
       expect(out.body.state).toBe('CHECKED_OUT');
+    });
+
+    it('rejects an arrival window that ends before it starts, on create and on edit (found in exploratory testing)', async () => {
+      const teacher = await t.as(USERS.teacher1);
+      const base = { visitorName: 'Wendy Window', purpose: 'Visit', date: '2026-03-10' };
+      const bad = await teacher.post('/api/visits').send({ ...base, windowStart: '15:00', windowEnd: '09:00' }).expect(400);
+      expect(bad.body.code).toBe('INVALID_WINDOW');
+      const ok = await teacher.post('/api/visits').send({ ...base, windowStart: '09:00', windowEnd: '15:00' }).expect(201);
+      await teacher.patch(`/api/visits/${ok.body.id}`).send({ windowEnd: '08:00' }).expect(400);
     });
 
     it('rejects bad dates (AC-1.2)', async () => {

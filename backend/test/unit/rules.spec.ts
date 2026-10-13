@@ -6,6 +6,7 @@ import {
   isValidPhMobile,
   schoolDay,
   schoolInstant,
+  validateArrivalWindow,
   validatePreRegistrationDate,
 } from '../../src/domain/rules';
 
@@ -60,5 +61,15 @@ describe('Philippine mobile numbers', () => {
   it('rejects others', () => {
     expect(isValidPhMobile('12345')).toBe(false);
     expect(isValidPhMobile('+14155550100')).toBe(false);
+  });
+});
+
+describe('arrival window', () => {
+  it('accepts open-ended, equal and ordered windows; rejects an end before the start', () => {
+    expect(validateArrivalWindow(null, null)).toBeNull();
+    expect(validateArrivalWindow('09:00', null)).toBeNull();
+    expect(validateArrivalWindow('09:00', '09:00')).toBeNull();
+    expect(validateArrivalWindow('09:00', '15:00')).toBeNull();
+    expect(validateArrivalWindow('15:00', '09:00')).toMatch(/end after/);
   });
 });

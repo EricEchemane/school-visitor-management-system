@@ -16,6 +16,7 @@ import {
   schoolInstant,
   validatePreRegistrationDate,
   isValidPhMobile,
+  validateArrivalWindow,
 } from '../domain/rules';
 import { CLOCK } from '../tokens';
 
@@ -154,6 +155,8 @@ export class VisitsService {
     const dateError = validatePreRegistrationDate(input.date, this.clock.now());
     if (dateError) throw badRequest(dateError, 'INVALID_DATE');
     this.validateContact(input.visitorContact);
+    const windowError = validateArrivalWindow(input.windowStart, input.windowEnd);
+    if (windowError) throw badRequest(windowError, 'INVALID_WINDOW');
     const s = await this.settings.get();
     const hostId = input.hostId ?? user.id;
     await this.eligibleHost(hostId);
@@ -193,6 +196,11 @@ export class VisitsService {
       if (err) throw badRequest(err, 'INVALID_DATE');
     }
     if (patch.visitorContact !== undefined) this.validateContact(patch.visitorContact);
+    const windowError = validateArrivalWindow(
+      patch.windowStart === undefined ? visit.window_start : patch.windowStart,
+      patch.windowEnd === undefined ? visit.window_end : patch.windowEnd,
+    );
+    if (windowError) throw badRequest(windowError, 'INVALID_WINDOW');
     if (patch.hostId && patch.hostId !== visit.host_id) await this.eligibleHost(patch.hostId);
 
     const map: Record<string, unknown> = {

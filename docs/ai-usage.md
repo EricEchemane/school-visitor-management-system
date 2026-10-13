@@ -6,7 +6,6 @@
 |---|---|
 | Claude Code (CLI, Claude Sonnet 5.5) | Interviewing the author to shape the spec; drafting `spec.md`, `assumptions.md`, `RBAC.md`, `test-plan.md`, README; writing the backend, frontend, tests, Docker and CI files; running tests, audits and an exploratory session against the live stack |
 | Claude Code skill `grilling` (user's personal skill) | Ran the requirements interview: one decision at a time, each with a recommended answer, until every branch of the design tree was settled |
-| Design skills in `.agents/skills/` (linked from `.claude/skills/`) | The author's general skill library for UI and motion work (e.g. `emil-design-eng`, `break-ui`, `animate`), committed so the setup is reproducible. They were not used to build this module; the only project-specific skills are `new-capability` and `review-against-spec` |
 | No other AI tools | |
 
 ## 2. How the work was framed (process, in order)

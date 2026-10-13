@@ -58,6 +58,14 @@ Only genuine corrections of AI output are listed; requirement changes made by th
 - Security-relevant code (auth, permission checks, state transitions, audit grants) is small and concentrated: `common/auth.ts`, `domain/visit-state.ts`, `services/visits.service.ts` (`transition`), `db/migrate.ts` (grants). These are the places to read first.
 - Plain SQL instead of an ORM keeps the data access explicit and explainable.
 
-## 7. Author's own notes (complete before submitting)
+## 7. Author's own notes
 
-_Write here, in your own words: the parts of the code you reviewed and can explain, anything you changed by hand, and one thing you would do differently. The interview may ask you to explain any line and make a small live change; good entry points are the state machine (`domain/visit-state.ts`), the conditional update in `VisitsService.transition`, and the permission guard (`common/auth.ts`)._
+**How the work was split.** I made the product decisions; Claude Code wrote nearly all of the code and tests, and the first drafts of the documents. The decisions came out of the requirements interview and are recorded in `decisions.md` as I made them. The places where I overrode or changed the AI's recommendation are listed in §2. The most important ones for the design: TypeScript instead of Java/Angular; single school instead of multi-tenant; data-driven custom roles instead of fixed ones; polling instead of SSE; and building the correction path for unverified departures.
+
+**What I checked against the running system.** I used the app in each role and asked for the changes in `8bde403`, `8811a15` and `90e5829`: the select chevron, row alignment and button wrapping, the overstay badge spacing, and confirmation dialogs before check-in and check-out. Before submitting, I had the repository reviewed against the exam brief. That review found the missing API section and the spec drift described in §5 item 10, and closed the last test gap the test plan listed.
+
+**Where I would start a walkthrough.** For the domain rule: `backend/src/domain/visit-state.ts`, which lists every legal transition, and `VisitsService.transition`, which turns it into a conditional `UPDATE` so the first writer wins. For authorisation: the guard in `backend/src/common/auth.ts`, which allows a route if the user holds any of the listed permissions. For the database guardrail: the grants in `backend/src/db/migrate.ts`, which make `audit_events` insert/select only.
+
+**What I would do differently.**
+1. *Keep the spec in step with the code as it changes, not at the end.* The spec was written first, as the brief asks, but the API section was never added and the data model drifted during the build. Neither project skill has a step for updating spec section 6. I would add one to `new-capability` and have `review-against-spec` compare the spec with `schema.sql` and the controllers.
+2. *Commit smaller.* The backend and UI each landed in one or two large commits. That is harder for a reviewer or teammate to follow than one commit per capability, which is what `CLAUDE.md` asks for.
